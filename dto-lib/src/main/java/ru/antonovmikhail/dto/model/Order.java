@@ -1,4 +1,4 @@
-package ru.antonovmikhail.shipment.model;
+package ru.antonovmikhail.dto.model;
 
 
 import lombok.AllArgsConstructor;

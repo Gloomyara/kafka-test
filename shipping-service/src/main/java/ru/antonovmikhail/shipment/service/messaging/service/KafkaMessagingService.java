@@ -7,11 +7,16 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.antonovmikhail.shipment.model.Order;
-import ru.antonovmikhail.shipment.service.messaging.event.OrderEvent;
-import ru.antonovmikhail.shipment.service.messaging.event.OrderSendEvent;
+import ru.antonovmikhail.dto.event.OrderEvent;
+import ru.antonovmikhail.dto.event.OrderSendEvent;
+import ru.antonovmikhail.dto.model.Order;
+
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +35,7 @@ public class KafkaMessagingService {
             properties = {"spring.json.value.default.type=com.example.service.OrderEvent"})
     public OrderEvent orderPayment(OrderEvent orderEvent) {
         log.info("The product: {} was ordered in quantity: {} and at a price: {}", orderEvent.getProductName(), orderEvent.getQuantity(), orderEvent.getPrice());
-        boolean b = sendOrder(modelMapper.map(shipmentLogic(modelMapper.map(orderEvent, Order.class)), OrderSendEvent.class)).isShipped();
+        boolean b = sendOrder(modelMapper.map(shipmentLogic(modelMapper.map(orderEvent, Order.class)), OrderSendEvent.class));
         log.info("Shipped?: {}", b);
         return orderEvent;
     }
@@ -39,14 +44,19 @@ public class KafkaMessagingService {
         try {
             Thread.sleep(1000);
             order.setShipped(true);
+            order.setBarCode("departure-1");
         } catch (InterruptedException e) {
             return order;
         }
         return order;
     }
 
-    public OrderSendEvent sendOrder(OrderSendEvent orderSendEvent) {
-        kafkaTemplate.send(sendClientTopic, orderSendEvent.getBarCode(), orderSendEvent);
-        return orderSendEvent;
+    public boolean sendOrder(OrderSendEvent orderSendEvent) {
+        CompletableFuture<SendResult<String, Object>> sending = kafkaTemplate.send(sendClientTopic, orderSendEvent.getBarCode(), orderSendEvent);
+        try {
+            return Objects.nonNull(sending.get());
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

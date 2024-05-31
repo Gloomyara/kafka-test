@@ -1,4 +1,4 @@
-package ru.antonovmikhail.shipment.model;
+package ru.antonovmikhail.dto.event;
 
 
 import lombok.AllArgsConstructor;
@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Order {
+public class OrderEvent {
 
     private Long UserId;
     private String productName;

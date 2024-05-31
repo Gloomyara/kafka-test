@@ -1,6 +1,6 @@
 package com.example.producer.service.messaging;
 
-import ru.antonovmikhail.orders.service.messaging.event.OrderSendEvent;
+import ru.antonovmikhail.dto.event.OrderSendEvent;
 import ru.antonovmikhail.orders.service.messaging.service.KafkaMessagingService;
 import com.example.producer.service.messaging.util.FakeOrder;
 import org.apache.kafka.clients.consumer.ConsumerConfig;

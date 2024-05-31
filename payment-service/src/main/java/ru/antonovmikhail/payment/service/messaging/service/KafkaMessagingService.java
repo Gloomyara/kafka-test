@@ -6,14 +6,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.antonovmikhail.payment.model.Order;
-import ru.antonovmikhail.payment.service.messaging.event.OrderEvent;
-import ru.antonovmikhail.payment.service.messaging.event.OrderSendEvent;
+import ru.antonovmikhail.dto.event.OrderEvent;
+import ru.antonovmikhail.dto.event.OrderSendEvent;
+import ru.antonovmikhail.dto.model.Order;
 
 import java.math.BigDecimal;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +33,14 @@ public class KafkaMessagingService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ModelMapper modelMapper;
 
+    //ArrayIndexOutOfBoundsException условно ошибка о недостатке средств
     @Transactional
+    @RetryableTopic(include = {NullPointerException.class, ArrayIndexOutOfBoundsException.class},
+            attempts = "4",
+            backoff = @Backoff(delay = 1000, multiplier = 2),
+            topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
+            retryTopicSuffix = "-try-again",
+            dltTopicSuffix = "-dead-t")
     @KafkaListener(topics = topicCreateOrder, groupId = kafkaConsumerGroupId,
             properties = {"spring.json.value.default.type=com.example.service.OrderEvent"})
     public OrderEvent orderPayment(OrderEvent orderEvent) {
@@ -41,13 +54,19 @@ public class KafkaMessagingService {
         try {
             Thread.sleep(1000);
             order.setPaid(true);
+            order.setBarCode("paid-1");
         } catch (InterruptedException e) {
             return order;
         }
         return order;
     }
 
-    public void sendOrder(OrderSendEvent orderSendEvent) {
-        kafkaTemplate.send(sendClientTopic, orderSendEvent.getBarCode(), orderSendEvent);
+    public boolean sendOrder(OrderSendEvent orderSendEvent) {
+        CompletableFuture<SendResult<String, Object>> sending = kafkaTemplate.send(sendClientTopic, orderSendEvent.getBarCode(), orderSendEvent);
+        try {
+            return Objects.nonNull(sending.get());
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

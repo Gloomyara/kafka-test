@@ -1,6 +1,6 @@
 package ru.antonovmikhail.orders.web.controller;
 
-import ru.antonovmikhail.orders.model.Order;
+import ru.antonovmikhail.dto.model.Order;
 import ru.antonovmikhail.orders.service.messaging.producer.Producer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
